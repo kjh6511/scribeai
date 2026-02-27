@@ -1,0 +1,97 @@
+spring:
+  application:
+    name: scribeai
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${POSTGRES_DB:scribeai}
+    username: ${POSTGRES_USER:}
+    password: ${POSTGRES_PASSWORD:}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+    open-in-view: false
+  servlet:
+    multipart:
+      max-file-size: ${MULTIPART_MAX_FILE_SIZE:200MB}
+      max-request-size: ${MULTIPART_MAX_REQUEST_SIZE:200MB}
+  sql:
+    init:
+      mode: always
+
+server:
+  port: ${SERVER_PORT:8080}
+  servlet:
+    context-path: /api
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: always
+
+stt:
+  provider: ${STT_PROVIDER:mock}
+  openai:
+    base-url: ${STT_OPENAI_BASE_URL:https://api.openai.com/v1}
+    api-key: ${OPENAI_API_KEY:}
+    model: ${STT_OPENAI_MODEL:whisper-1}
+    language: ${STT_OPENAI_LANGUAGE:}
+
+summarize:
+  provider: ${SUMMARY_PROVIDER:mock}
+  output-language: ${SUMMARY_OUTPUT_LANGUAGE:ko}
+  default-mode: ${SUMMARY_DEFAULT_MODE:AUTO}
+  max-transcript-chars: ${SUMMARY_MAX_TRANSCRIPT_CHARS:24000}
+  openai:
+    base-url: ${SUMMARY_OPENAI_BASE_URL:https://api.openai.com/v1}
+    api-key: ${OPENAI_API_KEY:}
+    model: ${SUMMARY_OPENAI_MODEL:gpt-4o-mini}
+    temperature: ${SUMMARY_OPENAI_TEMPERATURE:0.2}
+
+youtube:
+  yt-dlp:
+    command: ${YTDLP_COMMAND:yt-dlp}
+    js-runtime: ${YTDLP_JS_RUNTIME:node}
+    subtitle-langs: ${YTDLP_SUBTITLE_LANGS:ko,en,es}
+    extra-path: ${YTDLP_EXTRA_PATH:/opt/homebrew/bin:/usr/local/bin}
+    error-message-max-length: ${YTDLP_ERROR_MESSAGE_MAX_LENGTH:2000}
+
+rag:
+  chunk-size: ${RAG_CHUNK_SIZE:1000}
+  chunk-overlap: ${RAG_CHUNK_OVERLAP:150}
+  default-top-k: ${RAG_DEFAULT_TOP_K:5}
+  conversation:
+    max-turns: ${RAG_CONVERSATION_MAX_TURNS:4}
+    ttl-minutes: ${RAG_CONVERSATION_TTL_MINUTES:60}
+  cleanup:
+    enabled: ${RAG_CLEANUP_ENABLED:true}
+    retention-minutes: ${RAG_RETENTION_MINUTES:120}
+    interval-ms: ${RAG_CLEANUP_INTERVAL_MS:1200000}
+    initial-delay-ms: ${RAG_CLEANUP_INITIAL_DELAY_MS:60000}
+  embedding:
+    provider: ${RAG_EMBEDDING_PROVIDER:mock}
+    openai:
+      base-url: ${RAG_OPENAI_BASE_URL:https://api.openai.com/v1}
+      api-key: ${OPENAI_API_KEY:}
+      model: ${RAG_OPENAI_EMBEDDING_MODEL:text-embedding-3-small}
+  answer:
+    provider: ${RAG_ANSWER_PROVIDER:mock}
+    openai:
+      base-url: ${RAG_ANSWER_OPENAI_BASE_URL:https://api.openai.com/v1}
+      api-key: ${OPENAI_API_KEY:}
+      model: ${RAG_ANSWER_OPENAI_MODEL:gpt-4o-mini}
+      temperature: ${RAG_ANSWER_OPENAI_TEMPERATURE:0.2}
+      max-output-tokens: ${RAG_ANSWER_OPENAI_MAX_OUTPUT_TOKENS:700}
+  index-queue:
+    enabled: ${RAG_INDEX_QUEUE_ENABLED:true}
+    poll-interval-ms: ${RAG_INDEX_QUEUE_POLL_INTERVAL_MS:3000}
+    max-jobs-per-tick: ${RAG_INDEX_QUEUE_MAX_JOBS_PER_TICK:2}
+    max-retries: ${RAG_INDEX_QUEUE_MAX_RETRIES:3}
+    base-retry-seconds: ${RAG_INDEX_QUEUE_BASE_RETRY_SECONDS:20}
+  evaluation:
+    max-questions: ${RAG_EVALUATION_MAX_QUESTIONS:5}

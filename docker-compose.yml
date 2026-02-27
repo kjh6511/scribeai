@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: scribeai-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-scribeai}
+      POSTGRES_USER: ${POSTGRES_USER:-scribeai}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-scribeai}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-scribeai} -d ${POSTGRES_DB:-scribeai}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres-data:

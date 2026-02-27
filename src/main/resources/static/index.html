@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Scribe AI</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<div class="wrap">
+  <h1>Scribe AI</h1>
+  <p class="sub">음성을 받아쓰고 핵심을 정리해 주는 AI 요약 도구</p>
+
+  <div class="menu">
+    <button id="realtimeTabBtn" class="active">실시간</button>
+    <button id="batchTabBtn">업로드 · 유튜브</button>
+  </div>
+
+  <div id="realtimeView" class="grid-1">
+    <section class="card">
+      <div class="card-head">
+        <h3 style="margin:0;">실시간 요약</h3>
+        <span style="display:flex;align-items:center;gap:6px;">
+          <span style="font-size:12px;color:#5e5a53;">연결</span>
+          <span id="wsStatus" class="status">disconnected</span>
+        </span>
+      </div>
+      <p class="sub" style="margin:0 0 10px;">영상 링크를 불러오고 듣기 시작을 누르세요.</p>
+      <div class="realtime-input-row">
+        <input id="youtubeUrlInput" type="text" placeholder="https://www.youtube.com/watch?v=..." />
+        <button id="loadYoutubeBtn" class="primary">영상 불러오기</button>
+        <button id="startBtn" class="ok">듣기 시작</button>
+        <button id="stopBtn" class="danger">듣기 중단</button>
+        <button id="summaryBtn" class="warn">요약하기</button>
+      </div>
+      <div id="realtimeSummaryLoading" class="loading hidden">
+        <span class="spinner"></span>
+        <span>요약 중입니다. 잠시만 기다려 주세요.</span>
+      </div>
+
+      <input id="realtimeDocumentIdInput" type="hidden" />
+      <input id="chunkMsInput" type="hidden" value="8000" />
+      <div id="seqLabel" class="mono hidden">0</div>
+    </section>
+
+    <section class="card">
+      <div style="margin-top:0;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#000;">
+        <iframe
+          id="youtubeFrame"
+          width="100%"
+          height="280"
+          src=""
+          title="YouTube player"
+          frameborder="0"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allowfullscreen
+        ></iframe>
+      </div>
+    </section>
+
+    <section class="batch-result-grid">
+      <article class="card">
+        <h3 style="margin:0 0 8px;">영상 원문</h3>
+        <div id="captionPanel" class="panel tall-panel">실시간 원문이 여기에 표시됩니다.</div>
+      </article>
+      <article class="card">
+        <h3 style="margin:0 0 8px;">요약 결과</h3>
+        <div id="summaryPanel" class="panel tall-panel summary-panel">아직 요약이 없습니다.</div>
+      </article>
+    </section>
+
+    <section class="card">
+      <h3 style="margin:0 0 8px;">내용 검색</h3>
+      <div id="realtimeQuestionList" class="question-list"></div>
+      <div class="search-row">
+        <input id="realtimeSearchInput" type="text" placeholder="원문/요약에서 단어를 검색하세요" />
+        <button id="realtimeSearchBtn" class="primary">검색</button>
+        <button id="realtimeSearchResetBtn" class="ghost">초기화</button>
+      </div>
+      <div id="realtimeSearchResultPanel" class="panel">검색 결과가 여기에 표시됩니다.</div>
+    </section>
+
+    <section class="card">
+      <h3 style="margin:0 0 8px;">품질 평가(최대 5문항)</h3>
+      <div class="eval-grid">
+        <textarea id="realtimeEvalQuestions" placeholder="질문을 줄바꿈으로 입력하세요. 비우면 기본 5문항으로 실행됩니다."></textarea>
+        <button id="realtimeEvalRunBtn" class="primary">평가 실행</button>
+        <button id="realtimeEvalResetBtn" class="ghost">초기화</button>
+      </div>
+      <div id="realtimeEvalResultPanel" class="panel eval-result-panel">평가 결과가 여기에 표시됩니다.</div>
+    </section>
+
+    <section class="card">
+      <h3 style="margin:0 0 8px;">로그</h3>
+      <div id="logPanel" class="panel"></div>
+    </section>
+  </div>
+
+  <div id="batchView" class="grid-1 hidden">
+    <section class="card">
+      <div class="card-head">
+        <h3 style="margin:0;">업로드 · 유튜브 요약</h3>
+        <button id="clearBatchInputBtn" class="ghost icon-btn" title="입력 초기화" aria-label="입력 초기화">초기화</button>
+      </div>
+      <p class="sub" style="margin:0 0 10px;">파일 업로드 또는 유튜브 링크를 연결하시오.</p>
+      <div class="batch-input-row">
+        <input id="batchFileInput" type="file" accept="audio/*,video/*" />
+        <input id="batchYoutubeUrlInput" type="text" placeholder="https://www.youtube.com/watch?v=..." />
+        <button id="runBatchBtn" class="primary">요약하기</button>
+        <button id="retryBatchBtn" class="danger" disabled>다시 시도</button>
+      </div>
+      <div id="batchLoading" class="loading hidden">
+        <span class="spinner"></span>
+        <span id="batchLoadingText">요약 중입니다. 잠시만 기다려 주세요.</span>
+      </div>
+    </section>
+
+    <section class="batch-result-grid">
+      <article class="card">
+        <h3 style="margin:0 0 8px;">영상 원문</h3>
+        <div id="batchTranscriptPanel" class="panel tall-panel">영상 원문이 여기에 표시됩니다.</div>
+      </article>
+      <article class="card">
+        <h3 style="margin:0 0 8px;">요약 결과</h3>
+        <div id="batchSummaryPanel" class="panel tall-panel summary-panel">요약 결과가 여기에 표시됩니다.</div>
+      </article>
+    </section>
+
+    <section class="card">
+      <h3 style="margin:0 0 8px;">내용 검색</h3>
+      <div id="batchQuestionList" class="question-list"></div>
+      <div class="search-row">
+        <input id="batchSearchInput" type="text" placeholder="원문/요약에서 단어를 검색하세요" />
+        <button id="batchSearchBtn" class="primary">검색</button>
+        <button id="batchSearchResetBtn" class="ghost">초기화</button>
+      </div>
+      <div id="batchSearchResultPanel" class="panel">검색 결과가 여기에 표시됩니다.</div>
+    </section>
+
+    <section class="card">
+      <h3 style="margin:0 0 8px;">품질 평가(최대 5문항)</h3>
+      <div class="eval-grid">
+        <textarea id="batchEvalQuestions" placeholder="질문을 줄바꿈으로 입력하세요. 비우면 기본 5문항으로 실행됩니다."></textarea>
+        <button id="batchEvalRunBtn" class="primary">평가 실행</button>
+        <button id="batchEvalResetBtn" class="ghost">초기화</button>
+      </div>
+      <div id="batchEvalResultPanel" class="panel eval-result-panel">평가 결과가 여기에 표시됩니다.</div>
+    </section>
+
+    <section class="card">
+      <h3 style="margin:0 0 8px;">로그</h3>
+      <div id="batchLogPanel" class="panel"></div>
+    </section>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@stomp/stompjs@7.0.0/bundles/stomp.umd.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
