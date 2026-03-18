@@ -12,6 +12,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.server.ResponseStatusException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -24,6 +26,7 @@ import static org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR;
 @ConditionalOnProperty(prefix = "summarize", name = "provider", havingValue = "openai")
 public class OpenAiSummarizeProvider implements SummarizeProvider {
     private static final String FIXED_PACK_TYPE = "STANDARD";
+    private static final Logger log = LoggerFactory.getLogger(OpenAiSummarizeProvider.class);
 
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
@@ -65,12 +68,15 @@ public class OpenAiSummarizeProvider implements SummarizeProvider {
             throw new ResponseStatusException(INTERNAL_SERVER_ERROR, "OPENAI_API_KEY is required for openai summarize provider");
         }
 
+        String clampedTranscript = clampTranscript(transcript);
+        String sanitizedTitle = titleSanitizer.sanitize(titleHint, 120);
+        long startedAt = System.nanoTime();
+        log.info("OpenAI summarize request started. model={}, transcriptChars={}, titleHintChars={}",
+                model, clampedTranscript.length(), sanitizedTitle.length());
+
         try {
             //프롬프트 + 추출값 요청
-            Map<String, Object> request = buildRequest(
-                    clampTranscript(transcript),
-                    titleSanitizer.sanitize(titleHint, 120)
-            );
+            Map<String, Object> request = buildRequest(clampedTranscript, sanitizedTitle);
             String responseBody = restClient.post()
                     .uri("/chat/completions")
                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey)
@@ -110,17 +116,29 @@ public class OpenAiSummarizeProvider implements SummarizeProvider {
                     normalizeAiComment(text(summaryJson, "aiComment", ""))
             );
         } catch (RestClientResponseException e) {
+            long elapsedMs = (System.nanoTime() - startedAt) / 1_000_000L;
             String responseBody = e.getResponseBodyAsString();
             String shortBody = responseBody == null ? "" : responseBody.replaceAll("\\s+", " ").trim();
             if (shortBody.length() > 500) {
                 shortBody = shortBody.substring(0, 500) + "...";
             }
+            log.warn("OpenAI summarize request failed. model={}, elapsedMs={}, status={}, responseBody={}",
+                    model, elapsedMs, e.getRawStatusCode(), shortBody);
             String message = "OpenAI summarize failed (" + e.getRawStatusCode() + "): " + shortBody;
             throw new ResponseStatusException(e.getStatusCode(), message, e);
         } catch (ResponseStatusException e) {
+            long elapsedMs = (System.nanoTime() - startedAt) / 1_000_000L;
+            log.warn("OpenAI summarize request failed. model={}, elapsedMs={}, message={}",
+                    model, elapsedMs, e.getReason());
             throw e;
         } catch (Exception e) {
+            long elapsedMs = (System.nanoTime() - startedAt) / 1_000_000L;
+            log.warn("OpenAI summarize request failed. model={}, elapsedMs={}, message={}",
+                    model, elapsedMs, e.getMessage());
             throw new ResponseStatusException(INTERNAL_SERVER_ERROR, "Failed to summarize with OpenAI", e);
+        } finally {
+            long elapsedMs = (System.nanoTime() - startedAt) / 1_000_000L;
+            log.info("OpenAI summarize request finished. model={}, elapsedMs={}", model, elapsedMs);
         }
     }
     //프롬프트 요청

@@ -1,6 +1,6 @@
-package com.scribeai.rag.infra;
+package com.scribeai.rag.infra.store;
 
-import com.scribeai.rag.application.RagSearchHit;
+import com.scribeai.rag.application.model.RagSearchHit;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.BatchPreparedStatementSetter;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -57,7 +57,7 @@ public class RagChunkStore {
     }
 
     // 유사 청크 조회
-    public List<RagSearchHit> searchByDocumentId(Long documentId, float[] queryEmbedding, int topK) {
+    public List<RagSearchHit> searchVectorByDocumentId(Long documentId, float[] queryEmbedding, int topK) {
         String queryVector = toVectorLiteral(queryEmbedding);
         return jdbcTemplate.query(
                 "SELECT chunk_index, content, (1 - (embedding <=> CAST(? AS vector))) AS score "
@@ -75,6 +75,38 @@ public class RagChunkStore {
                 queryVector,
                 topK
         );
+    }
+
+    // 키워드 기반 청크 조회
+    public List<RagSearchHit> searchKeywordByDocumentId(Long documentId, String query, int topK) {
+        if (query == null || query.isBlank()) {
+            return List.of();
+        }
+        return jdbcTemplate.query(
+                """
+                SELECT chunk_index, content,
+                       ts_rank_cd(to_tsvector('simple', content), plainto_tsquery('simple', ?)) AS score
+                FROM document_chunks
+                WHERE document_id = ?
+                  AND to_tsvector('simple', content) @@ plainto_tsquery('simple', ?)
+                ORDER BY score DESC, chunk_index ASC
+                LIMIT ?
+                """,
+                (rs, rowNum) -> new RagSearchHit(
+                        rs.getInt("chunk_index"),
+                        rs.getString("content"),
+                        rs.getDouble("score")
+                ),
+                query,
+                documentId,
+                query,
+                topK
+        );
+    }
+
+    // 하위 호환: 기존 벡터 검색 메서드 이름
+    public List<RagSearchHit> searchByDocumentId(Long documentId, float[] queryEmbedding, int topK) {
+        return searchVectorByDocumentId(documentId, queryEmbedding, topK);
     }
 
     // 작업 청크 순서 조회

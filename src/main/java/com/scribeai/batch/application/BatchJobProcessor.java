@@ -9,7 +9,7 @@ import com.scribeai.document.domain.Document;
 import com.scribeai.document.domain.DocumentSummary;
 import com.scribeai.document.repository.DocumentRepository;
 import com.scribeai.document.repository.DocumentSummaryRepository;
-import com.scribeai.rag.application.RagIndexQueueService;
+import com.scribeai.rag.application.service.RagIndexQueueService;
 import com.scribeai.stt.application.SttProvider;
 import com.scribeai.stt.application.SttResult;
 import com.scribeai.summarize.application.SummarizeProvider;
@@ -69,7 +69,9 @@ public class BatchJobProcessor {
 
                 document.markDone(transcript);
                 upsertSummary(document.getId(), summaryJson);
-                ragIndexQueueService.enqueue(document.getId());
+                if (!ragIndexQueueService.enqueueWithRetry(document.getId())) {
+                    log.warn("RAG enqueue skipped after retries. documentId={}", document.getId());
+                }
             } catch (Exception e) {
                 log.error("YouTube document processing failed. documentId={}", documentId, e);
                 document.markFail(extractErrorMessage(e));
@@ -92,7 +94,9 @@ public class BatchJobProcessor {
 
             document.markDone(transcript);
             upsertSummary(document.getId(), summaryJson);
-            ragIndexQueueService.enqueue(document.getId());
+            if (!ragIndexQueueService.enqueueWithRetry(document.getId())) {
+                log.warn("RAG enqueue skipped after retries. documentId={}", document.getId());
+            }
         } catch (JsonProcessingException e) {
             log.error("Summary serialization failed. documentId={}", document.getId(), e);
             document.markFail("Summary serialization failed");

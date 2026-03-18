@@ -1,8 +1,8 @@
-package com.scribeai.rag.infra;
+package com.scribeai.rag.infra.answer;
 
-import com.scribeai.rag.application.RagAnswerProvider;
-import com.scribeai.rag.application.RagConversationTurn;
-import com.scribeai.rag.application.RagSearchHit;
+import com.scribeai.rag.application.port.RagAnswerProvider;
+import com.scribeai.rag.application.model.RagConversationTurn;
+import com.scribeai.rag.application.model.RagSearchHit;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 

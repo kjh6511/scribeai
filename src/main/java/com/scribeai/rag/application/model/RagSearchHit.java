@@ -1,4 +1,4 @@
-package com.scribeai.rag.application;
+package com.scribeai.rag.application.model;
 
 public record RagSearchHit(
         int chunkIndex,

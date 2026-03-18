@@ -7,7 +7,7 @@ import com.scribeai.document.domain.DocumentStatus;
 import com.scribeai.document.domain.DocumentSummary;
 import com.scribeai.document.repository.DocumentRepository;
 import com.scribeai.document.repository.DocumentSummaryRepository;
-import com.scribeai.rag.application.RagIndexQueueService;
+import com.scribeai.rag.application.service.RagIndexQueueService;
 import com.scribeai.realtime.api.dto.AudioChunkMessage;
 import com.scribeai.realtime.api.dto.CaptionMessage;
 import com.scribeai.realtime.api.dto.RealtimeErrorMessage;
@@ -16,6 +16,7 @@ import com.scribeai.stt.application.SttProvider;
 import com.scribeai.stt.application.SttResult;
 import com.scribeai.summarize.application.SummarizeProvider;
 import com.scribeai.summarize.application.SummaryResult;
+import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -31,6 +32,7 @@ import static org.springframework.http.HttpStatus.BAD_REQUEST;
 import static org.springframework.http.HttpStatus.NOT_FOUND;
 
 @Service
+@RequiredArgsConstructor
 public class RealtimeTranscriptionService {
 
     private final SttProvider sttProvider;
@@ -43,26 +45,6 @@ public class RealtimeTranscriptionService {
     private final ObjectMapper objectMapper;
 
     private final Map<Long, RealtimeState> states = new ConcurrentHashMap<>();
-
-    public RealtimeTranscriptionService(
-            SttProvider sttProvider,
-            SummarizeProvider summarizeProvider,
-            SimpMessagingTemplate messagingTemplate,
-            TranscriptPreprocessor transcriptPreprocessor,
-            DocumentRepository documentRepository,
-            DocumentSummaryRepository documentSummaryRepository,
-            RagIndexQueueService ragIndexQueueService,
-            ObjectMapper objectMapper
-    ) {
-        this.sttProvider = sttProvider;
-        this.summarizeProvider = summarizeProvider;
-        this.messagingTemplate = messagingTemplate;
-        this.transcriptPreprocessor = transcriptPreprocessor;
-        this.documentRepository = documentRepository;
-        this.documentSummaryRepository = documentSummaryRepository;
-        this.ragIndexQueueService = ragIndexQueueService;
-        this.objectMapper = objectMapper;
-    }
 
     // 오디오 청크 처리
     @Async("realtimeTaskExecutor")
@@ -185,7 +167,12 @@ public class RealtimeTranscriptionService {
                     .orElseGet(() -> DocumentSummary.create(documentId, summaryJson));
             documentSummary.changeSummaryJson(summaryJson);
             documentSummaryRepository.save(documentSummary);
-            ragIndexQueueService.enqueue(documentId);
+            if (!ragIndexQueueService.enqueueWithRetry(documentId)) {
+                messagingTemplate.convertAndSend(
+                        errorTopic(documentId),
+                        new RealtimeErrorMessage(documentId, "RAG indexing queue registration failed")
+                );
+            }
         } catch (Exception e) {
             throw new ResponseStatusException(BAD_REQUEST, "Failed to persist realtime summary", e);
         }

@@ -15,12 +15,15 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.server.ResponseStatusException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import static org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR;
 
 @Component
 @ConditionalOnProperty(prefix = "stt", name = "provider", havingValue = "openai")
 public class OpenAiSttProvider implements SttProvider {
+    private static final Logger log = LoggerFactory.getLogger(OpenAiSttProvider.class);
 
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
@@ -51,6 +54,9 @@ public class OpenAiSttProvider implements SttProvider {
         }
 
         String safeFileName = fileName == null || fileName.isBlank() ? "audio.bin" : fileName;
+        int audioSize = audioBytes == null ? 0 : audioBytes.length;
+        long startedAt = System.nanoTime();
+        log.info("OpenAI STT request started. model={}, fileName={}, bytes={}", model, safeFileName, audioSize);
         MediaType mediaType = parseMediaType(contentType);
 
         MultiValueMap<String, Object> formData = new LinkedMultiValueMap<>();
@@ -70,19 +76,19 @@ public class OpenAiSttProvider implements SttProvider {
         partHeaders.setContentType(mediaType);
         formData.add("file", new HttpEntity<>(fileResource, partHeaders));
 
-        String responseBody = restClient.post()
-                .uri("/audio/transcriptions")
-                .header(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey)
-                .contentType(MediaType.MULTIPART_FORM_DATA)
-                .body(formData)
-                .retrieve()
-                .body(String.class);
-
-        if (responseBody == null || responseBody.isBlank()) {
-            throw new ResponseStatusException(INTERNAL_SERVER_ERROR, "OpenAI STT response is empty");
-        }
-
         try {
+            String responseBody = restClient.post()
+                    .uri("/audio/transcriptions")
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey)
+                    .contentType(MediaType.MULTIPART_FORM_DATA)
+                    .body(formData)
+                    .retrieve()
+                    .body(String.class);
+
+            if (responseBody == null || responseBody.isBlank()) {
+                throw new ResponseStatusException(INTERNAL_SERVER_ERROR, "OpenAI STT response is empty");
+            }
+
             JsonNode jsonNode = objectMapper.readTree(responseBody);
             String transcript = jsonNode.path("text").asText();
             String detectedLanguage = jsonNode.path("language").asText(language == null || language.isBlank() ? "unknown" : language);
@@ -91,8 +97,13 @@ public class OpenAiSttProvider implements SttProvider {
                 throw new ResponseStatusException(INTERNAL_SERVER_ERROR, "OpenAI STT text is empty");
             }
 
+            long elapsedMs = (System.nanoTime() - startedAt) / 1_000_000L;
+            log.info("OpenAI STT request finished. model={}, fileName={}, bytes={}, elapsedMs={}", model, safeFileName, audioSize, elapsedMs);
             return new SttResult(transcript, detectedLanguage);
         } catch (Exception e) {
+            long elapsedMs = (System.nanoTime() - startedAt) / 1_000_000L;
+            log.warn("OpenAI STT request failed. model={}, fileName={}, bytes={}, elapsedMs={}, message={}",
+                    model, safeFileName, audioSize, elapsedMs, e.getMessage());
             throw new ResponseStatusException(INTERNAL_SERVER_ERROR, "Failed to parse OpenAI STT response", e);
         }
     }

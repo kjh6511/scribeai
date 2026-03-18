@@ -1,6 +1,6 @@
-package com.scribeai.rag.infra;
+package com.scribeai.rag.infra.embedding;
 
-import com.scribeai.rag.application.EmbeddingProvider;
+import com.scribeai.rag.application.port.EmbeddingProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 

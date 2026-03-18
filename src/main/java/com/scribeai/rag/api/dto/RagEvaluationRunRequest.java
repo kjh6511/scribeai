@@ -10,6 +10,8 @@ public record RagEvaluationRunRequest(
         @JsonAlias("jobId")
         Long documentId,
         List<String> questions,
+        List<RagEvaluationQuestionSpec> questionSet,
+        List<String> compareModes,
         Integer topK,
         Boolean autoIndex
 ) {

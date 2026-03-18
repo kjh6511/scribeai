@@ -1,5 +1,6 @@
-package com.scribeai.rag.application;
+package com.scribeai.rag.application.service;
 
+import com.scribeai.rag.application.model.RagConversationTurn;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 

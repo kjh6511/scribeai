@@ -8,6 +8,8 @@ import java.time.LocalDateTime;
 public record BatchJobDetailResponse(
         Long documentId,
         DocumentStatus status,
+        String ragIndexStatus,
+        boolean searchReady,
         String originalFileName,
         String transcript,
         JsonNode summaryJson,

@@ -510,13 +510,24 @@ function parseEvalQuestions(inputValue) {
     .map((line) => line.trim())
     .filter((line) => line.length > 0);
   const questions = fromInput.length > 0 ? fromInput : getDefaultEvalQuestions();
-  return Array.from(new Set(questions)).slice(0, 5);
+  const dedupQuestions = Array.from(new Set(questions)).slice(0, 5);
+  return {
+    questions: dedupQuestions,
+    questionSet: dedupQuestions.map((question) => ({ question }))
+  };
 }
 
 function formatLatency(msValue) {
   const ms = Number(msValue || 0);
   const sec = (ms / 1000).toFixed(2);
   return `${ms}ms (${sec}s)`;
+}
+
+function modeLabel(mode) {
+  if (mode === 'VECTOR_ONLY') return 'Vector Only';
+  if (mode === 'HYBRID_ONLY') return 'Hybrid Only';
+  if (mode === 'HYBRID_RERANK') return 'Hybrid + Rerank';
+  return mode || '-';
 }
 
 function renderEvaluationResult(panel, result) {
@@ -539,6 +550,19 @@ function renderEvaluationResult(panel, result) {
     `;
   }).join('');
 
+  const comparisons = Array.isArray(result.comparisons) ? result.comparisons : [];
+  const comparisonRows = comparisons.map((cmp) => `
+    <tr>
+      <td>${escapeHtml(modeLabel(cmp.mode))}</td>
+      <td>${cmp.successCount}/${cmp.totalQuestions}</td>
+      <td>${formatLatency(cmp.avgLatencyMs)}</td>
+      <td>${formatLatency(cmp.p95LatencyMs)}</td>
+      <td>${cmp.labeledQuestionCount > 0 ? `${((cmp.hitRateAtK || 0) * 100).toFixed(1)}%` : '-'}</td>
+      <td>${cmp.labeledQuestionCount > 0 ? Number(cmp.mrrAtK || 0).toFixed(3) : '-'}</td>
+      <td>${cmp.labeledQuestionCount > 0 ? Number(cmp.ndcgAtK || 0).toFixed(3) : '-'}</td>
+    </tr>
+  `).join('');
+
   panel.innerHTML = `
     <div class="eval-summary">
       <div class="eval-metric">
@@ -557,11 +581,54 @@ function renderEvaluationResult(panel, result) {
         <div class="label">예상 호출량</div>
         <div class="value">${result.estimatedTotalCalls}</div>
       </div>
+      ${result.labeledQuestionCount > 0 ? `
+      <div class="eval-metric">
+        <div class="label">Hit@K</div>
+        <div class="value">${((result.hitRateAtK || 0) * 100).toFixed(1)}%</div>
+      </div>
+      <div class="eval-metric">
+        <div class="label">MRR@K</div>
+        <div class="value">${Number(result.mrrAtK || 0).toFixed(3)}</div>
+      </div>
+      <div class="eval-metric">
+        <div class="label">nDCG@K</div>
+        <div class="value">${Number(result.ndcgAtK || 0).toFixed(3)}</div>
+      </div>
+      ` : ''}
     </div>
     <div style="font-size:12px;color:#6a655d;margin-bottom:8px;">
       임베딩 ${result.estimatedEmbeddingCalls}회 · 답변 ${result.estimatedAnswerCalls}회
       ${result.chunkCountUsedForIndexing > 0 ? ` · 인덱싱 청크 ${result.chunkCountUsedForIndexing}개` : ''}
+      ${result.labeledQuestionCount > 0 ? ` · 라벨 평가 ${result.labeledQuestionCount}문항` : ''}
     </div>
+    ${result.labeledQuestionCount > 0 ? `
+    <div style="font-size:12px;color:#6a655d;margin:0 0 8px;">
+      Hit@K: 정답 청크가 K개 결과 안에 포함된 비율 ·
+      MRR@K: 정답이 상위에 나올수록 높아지는 순위 점수 ·
+      nDCG@K: 순위 품질을 반영한 정규화 점수
+    </div>
+    ` : ''}
+    ${comparisons.length > 0 ? `
+    <div class="eval-compare-wrap">
+      <div class="eval-compare-title">모드 비교</div>
+      <table class="eval-compare-table">
+        <thead>
+          <tr>
+            <th>Mode</th>
+            <th>성공</th>
+            <th>평균</th>
+            <th>P95</th>
+            <th>Hit@K</th>
+            <th>MRR@K</th>
+            <th>nDCG@K</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${comparisonRows}
+        </tbody>
+      </table>
+    </div>
+    ` : ''}
     <div>${rows || '<div class="eval-item">결과가 없습니다.</div>'}</div>
   `;
 }
@@ -572,7 +639,9 @@ async function runEvaluation(documentId, questionInput, resultPanel, logFn) {
     return;
   }
 
-  const questions = parseEvalQuestions(questionInput.value);
+  const parsed = parseEvalQuestions(questionInput.value);
+  const questions = parsed.questions;
+  const questionSet = parsed.questionSet;
   questionInput.value = questions.join('\n');
   resultPanel.textContent = '평가 실행 중입니다...';
 
@@ -583,6 +652,8 @@ async function runEvaluation(documentId, questionInput, resultPanel, logFn) {
       body: JSON.stringify({
         documentId,
         questions,
+        questionSet,
+        compareModes: ['VECTOR_ONLY', 'HYBRID_ONLY', 'HYBRID_RERANK'],
         topK: 7,
         autoIndex: true
       })
@@ -597,7 +668,10 @@ async function runEvaluation(documentId, questionInput, resultPanel, logFn) {
     }
     renderEvaluationResult(resultPanel, body);
     if (typeof logFn === 'function') {
-      logFn(`평가 완료: ${body.successCount}/${body.totalQuestions} 성공`);
+      const labelMsg = body.labeledQuestionCount > 0
+        ? ` · Hit@K ${((body.hitRateAtK || 0) * 100).toFixed(1)}%`
+        : '';
+      logFn(`평가 완료: ${body.successCount}/${body.totalQuestions} 성공${labelMsg}`);
     }
   } catch (err) {
     resultPanel.textContent = `평가 오류: ${err.message || err}`;

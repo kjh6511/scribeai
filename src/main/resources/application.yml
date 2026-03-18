@@ -64,7 +64,6 @@ youtube:
 rag:
   chunk-size: ${RAG_CHUNK_SIZE:1000}
   chunk-overlap: ${RAG_CHUNK_OVERLAP:150}
-  default-top-k: ${RAG_DEFAULT_TOP_K:5}
   conversation:
     max-turns: ${RAG_CONVERSATION_MAX_TURNS:4}
     ttl-minutes: ${RAG_CONVERSATION_TTL_MINUTES:60}
@@ -87,6 +86,23 @@ rag:
       model: ${RAG_ANSWER_OPENAI_MODEL:gpt-4o-mini}
       temperature: ${RAG_ANSWER_OPENAI_TEMPERATURE:0.2}
       max-output-tokens: ${RAG_ANSWER_OPENAI_MAX_OUTPUT_TOKENS:700}
+  search:
+    final-top-k: ${RAG_SEARCH_FINAL_TOP_K:${RAG_DEFAULT_TOP_K:5}}
+    vector-retrieve-top-k: ${RAG_SEARCH_VECTOR_RETRIEVE_TOP_K:${RAG_SEARCH_VECTOR_TOP_K:12}}
+    keyword-retrieve-top-k: ${RAG_SEARCH_KEYWORD_RETRIEVE_TOP_K:${RAG_SEARCH_KEYWORD_TOP_K:12}}
+    hybrid-candidate-top-k: ${RAG_SEARCH_HYBRID_CANDIDATE_TOP_K:${RAG_RERANK_CANDIDATE_TOP_K:16}}
+    rrf-k: ${RAG_SEARCH_RRF_K:60}
+    vector-weight: ${RAG_SEARCH_VECTOR_WEIGHT:1.0}
+    keyword-weight: ${RAG_SEARCH_KEYWORD_WEIGHT:1.0}
+  rerank:
+    provider: ${RAG_RERANK_PROVIDER:mock}
+    max-candidate-chars-per-chunk: ${RAG_RERANK_MAX_CANDIDATE_CHARS_PER_CHUNK:600}
+    openai:
+      base-url: ${RAG_RERANK_OPENAI_BASE_URL:https://api.openai.com/v1}
+      api-key: ${OPENAI_API_KEY:}
+      model: ${RAG_RERANK_OPENAI_MODEL:gpt-4o-mini}
+      temperature: ${RAG_RERANK_OPENAI_TEMPERATURE:0.0}
+      max-output-tokens: ${RAG_RERANK_OPENAI_MAX_OUTPUT_TOKENS:300}
   index-queue:
     enabled: ${RAG_INDEX_QUEUE_ENABLED:true}
     poll-interval-ms: ${RAG_INDEX_QUEUE_POLL_INTERVAL_MS:3000}

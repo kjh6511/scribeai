@@ -1,4 +1,7 @@
-package com.scribeai.rag.application;
+package com.scribeai.rag.application.port;
+
+import com.scribeai.rag.application.model.RagConversationTurn;
+import com.scribeai.rag.application.model.RagSearchHit;
 
 import java.util.List;
 

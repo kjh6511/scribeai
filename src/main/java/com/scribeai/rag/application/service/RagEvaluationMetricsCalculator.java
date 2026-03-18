@@ -1,4 +1,4 @@
-package com.scribeai.rag.application;
+package com.scribeai.rag.application.service;
 
 import org.springframework.stereotype.Component;
 

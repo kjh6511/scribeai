@@ -11,7 +11,9 @@ import com.scribeai.document.domain.DocumentStatus;
 import com.scribeai.document.domain.DocumentSummary;
 import com.scribeai.document.repository.DocumentRepository;
 import com.scribeai.document.repository.DocumentSummaryRepository;
+import com.scribeai.rag.infra.store.RagChunkStore;
 import lombok.RequiredArgsConstructor;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -29,6 +31,8 @@ public class BatchJobService {
     private final DocumentRepository documentRepository;
     private final DocumentSummaryRepository documentSummaryRepository;
     private final BatchJobProcessor batchJobProcessor;
+    private final RagChunkStore ragChunkStore;
+    private final JdbcTemplate jdbcTemplate;
     private final ObjectMapper objectMapper;
 
     // 업로드 파일로 배치 작업 생성
@@ -103,10 +107,15 @@ public class BatchJobService {
         String summaryJson = documentSummaryRepository.findByDocumentId(document.getId())
                 .map(DocumentSummary::getSummaryJson)
                 .orElse(null);
+        String ragIndexStatus = findLatestRagIndexStatus(document.getId());
+        boolean searchReady = document.getStatus() == DocumentStatus.DONE
+                && ragChunkStore.countByDocumentId(document.getId()) > 0;
 
         return new BatchJobDetailResponse(
                 document.getId(),
                 document.getStatus(),
+                ragIndexStatus,
+                searchReady,
                 document.getOriginalName(),
                 document.getTranscript(),
                 parseSummaryJson(summaryJson),
@@ -126,5 +135,19 @@ public class BatchJobService {
         } catch (JsonProcessingException e) {
             return objectMapper.createObjectNode().put("raw", summaryJson);
         }
+    }
+
+    private String findLatestRagIndexStatus(Long documentId) {
+        return jdbcTemplate.query(
+                """
+                SELECT status
+                FROM rag_index_jobs
+                WHERE document_id = ?
+                ORDER BY updated_at DESC, id DESC
+                LIMIT 1
+                """,
+                rs -> rs.next() ? rs.getString("status") : null,
+                documentId
+        );
     }
 }

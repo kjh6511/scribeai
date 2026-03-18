@@ -1,16 +1,18 @@
-package com.scribeai.rag.infra;
+package com.scribeai.rag.infra.answer;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.scribeai.rag.application.RagAnswerProvider;
-import com.scribeai.rag.application.RagConversationTurn;
-import com.scribeai.rag.application.RagSearchHit;
+import com.scribeai.rag.application.port.RagAnswerProvider;
+import com.scribeai.rag.application.model.RagConversationTurn;
+import com.scribeai.rag.application.model.RagSearchHit;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.server.ResponseStatusException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
 import java.util.List;
@@ -22,6 +24,7 @@ import static org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR;
 @Component
 @ConditionalOnProperty(prefix = "rag.answer", name = "provider", havingValue = "openai")
 public class OpenAiRagAnswerProvider implements RagAnswerProvider {
+    private static final Logger log = LoggerFactory.getLogger(OpenAiRagAnswerProvider.class);
 
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
@@ -59,6 +62,13 @@ public class OpenAiRagAnswerProvider implements RagAnswerProvider {
         if (apiKey == null || apiKey.isBlank()) {
             throw new ResponseStatusException(INTERNAL_SERVER_ERROR, "OPENAI_API_KEY is required for openai rag answer provider");
         }
+
+        long startedAt = System.nanoTime();
+        int sourceCount = sources.size();
+        int questionChars = question.trim().length();
+        int historyCount = history == null ? 0 : history.size();
+        log.info("OpenAI rag-answer request started. model={}, questionChars={}, sourceCount={}, historyCount={}",
+                model, questionChars, sourceCount, historyCount);
 
         try {
             String context = buildContext(sources);
@@ -104,10 +114,19 @@ public class OpenAiRagAnswerProvider implements RagAnswerProvider {
                 throw new ResponseStatusException(INTERNAL_SERVER_ERROR, "OpenAI rag answer content is empty");
             }
 
+            long elapsedMs = (System.nanoTime() - startedAt) / 1_000_000L;
+            log.info("OpenAI rag-answer request finished. model={}, questionChars={}, sourceCount={}, elapsedMs={}",
+                    model, questionChars, sourceCount, elapsedMs);
             return content.trim();
         } catch (ResponseStatusException e) {
+            long elapsedMs = (System.nanoTime() - startedAt) / 1_000_000L;
+            log.warn("OpenAI rag-answer request failed. model={}, questionChars={}, sourceCount={}, elapsedMs={}, message={}",
+                    model, questionChars, sourceCount, elapsedMs, e.getReason());
             throw e;
         } catch (Exception e) {
+            long elapsedMs = (System.nanoTime() - startedAt) / 1_000_000L;
+            log.warn("OpenAI rag-answer request failed. model={}, questionChars={}, sourceCount={}, elapsedMs={}, message={}",
+                    model, questionChars, sourceCount, elapsedMs, e.getMessage());
             throw new ResponseStatusException(INTERNAL_SERVER_ERROR, "Failed to generate rag answer", e);
         }
     }

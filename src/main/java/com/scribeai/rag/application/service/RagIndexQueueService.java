@@ -1,4 +1,4 @@
-package com.scribeai.rag.application;
+package com.scribeai.rag.application.service;
 
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -37,13 +37,19 @@ public class RagIndexQueueService {
     @Value("${rag.index-queue.max-jobs-per-tick:2}")
     private int maxJobsPerTick;
 
+    @Value("${rag.index-queue.enqueue-max-attempts:3}")
+    private int enqueueMaxAttempts;
+
+    @Value("${rag.index-queue.enqueue-retry-delay-ms:150}")
+    private long enqueueRetryDelayMs;
+
     // 인덱싱 작업 큐 등록
     @Transactional
-    public void enqueue(Long documentId) {
+    public boolean enqueue(Long documentId) {
         if (documentId == null) {
-            return;
+            return false;
         }
-        jdbcTemplate.update(
+        int inserted = jdbcTemplate.update(
                 """
                 INSERT INTO rag_index_jobs (document_id, status, retry_count, next_retry_at, created_at, updated_at)
                 SELECT ?, 'PENDING', 0, now(), now(), now()
@@ -57,6 +63,24 @@ public class RagIndexQueueService {
                 documentId,
                 documentId
         );
+        return inserted > 0;
+    }
+
+    // 큐 등록 재시도
+    public boolean enqueueWithRetry(Long documentId) {
+        int attempts = Math.max(enqueueMaxAttempts, 1);
+        for (int i = 1; i <= attempts; i++) {
+            try {
+                return enqueue(documentId);
+            } catch (Exception e) {
+                log.warn("RAG enqueue attempt failed. documentId={}, attempt={}/{}", documentId, i, attempts, e);
+                if (i < attempts) {
+                    sleepBeforeRetry();
+                }
+            }
+        }
+        log.error("RAG enqueue failed after retries. documentId={}, attempts={}", documentId, attempts);
+        return false;
     }
 
     // 큐 소비 스케줄러
@@ -117,6 +141,18 @@ public class RagIndexQueueService {
         }
         String normalized = value.replaceAll("\\s+", " ").trim();
         return normalized.length() > 2000 ? normalized.substring(0, 2000) : normalized;
+    }
+
+    private void sleepBeforeRetry() {
+        long delay = Math.max(enqueueRetryDelayMs, 0L);
+        if (delay == 0L) {
+            return;
+        }
+        try {
+            Thread.sleep(delay);
+        } catch (InterruptedException interruptedException) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     //대기중인 인덱싱 작업 변경

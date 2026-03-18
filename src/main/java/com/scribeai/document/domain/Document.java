@@ -11,6 +11,7 @@ import jakarta.persistence.Lob;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 
 import java.time.LocalDateTime;
 
@@ -48,6 +49,10 @@ public class Document {
 
     @Column(nullable = false)
     private LocalDateTime updatedAt;
+
+    @Version
+    @Column(nullable = false)
+    private Long version;
 
     protected Document() {
     }
@@ -112,25 +117,37 @@ public class Document {
     }
 
     public void markRunning() {
+        ensureTransitionAllowed(DocumentStatus.RUNNING, DocumentStatus.PENDING);
         this.status = DocumentStatus.RUNNING;
         this.errorMessage = null;
     }
 
     public void prepareRetry() {
+        ensureTransitionAllowed(DocumentStatus.PENDING, DocumentStatus.FAIL);
         this.status = DocumentStatus.PENDING;
         this.transcript = null;
         this.errorMessage = null;
     }
 
     public void markDone(String transcript) {
+        ensureTransitionAllowed(DocumentStatus.DONE, DocumentStatus.RUNNING);
         this.status = DocumentStatus.DONE;
         this.transcript = transcript;
         this.errorMessage = null;
     }
 
     public void markFail(String errorMessage) {
+        ensureTransitionAllowed(DocumentStatus.FAIL, DocumentStatus.PENDING, DocumentStatus.RUNNING);
         this.status = DocumentStatus.FAIL;
         this.errorMessage = errorMessage;
     }
-}
 
+    private void ensureTransitionAllowed(DocumentStatus next, DocumentStatus... allowedCurrentStatuses) {
+        for (DocumentStatus allowed : allowedCurrentStatuses) {
+            if (this.status == allowed) {
+                return;
+            }
+        }
+        throw new IllegalStateException("Invalid document status transition: " + this.status + " -> " + next);
+    }
+}

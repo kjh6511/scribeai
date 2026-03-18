@@ -1,9 +1,9 @@
-package com.scribeai.rag.application;
+package com.scribeai.rag.application.service;
 
 import com.scribeai.document.domain.DocumentStatus;
 import com.scribeai.document.repository.DocumentRepository;
 import com.scribeai.document.repository.DocumentSummaryRepository;
-import com.scribeai.rag.infra.RagChunkStore;
+import com.scribeai.rag.infra.store.RagChunkStore;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

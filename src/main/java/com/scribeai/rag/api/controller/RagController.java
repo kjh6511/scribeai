@@ -1,4 +1,4 @@
-package com.scribeai.rag.api;
+package com.scribeai.rag.api.controller;
 
 import com.scribeai.rag.api.dto.RagAskRequest;
 import com.scribeai.rag.api.dto.RagAskResponse;
@@ -8,9 +8,9 @@ import com.scribeai.rag.api.dto.RagEvaluationRunResponse;
 import com.scribeai.rag.api.dto.RagIndexResponse;
 import com.scribeai.rag.api.dto.RagSearchRequest;
 import com.scribeai.rag.api.dto.RagSearchResponse;
-import com.scribeai.rag.application.RagEvaluationService;
-import com.scribeai.rag.application.RagSearchHit;
-import com.scribeai.rag.application.RagService;
+import com.scribeai.rag.application.service.RagEvaluationService;
+import com.scribeai.rag.application.model.RagSearchHit;
+import com.scribeai.rag.application.service.RagService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -77,7 +77,7 @@ public class RagController {
         RagAnswerResult result = ragService.ask(
                 request.documentId(),
                 request.question(),
-                request.topK(),
+                request.topK(), //몇개의 top으로 검색할건지. 기본 5
                 request.autoIndex()
         );
 
@@ -111,6 +111,8 @@ public class RagController {
         return ragEvaluationService.run(
                 request.documentId(),
                 request.questions(),
+                request.questionSet(),
+                request.compareModes(),
                 request.topK(),
                 request.autoIndex()
         );

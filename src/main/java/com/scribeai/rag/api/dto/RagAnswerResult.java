@@ -1,6 +1,6 @@
 package com.scribeai.rag.api.dto;
 
-import com.scribeai.rag.application.RagSearchHit;
+import com.scribeai.rag.application.model.RagSearchHit;
 
 import java.util.List;
 

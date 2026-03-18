@@ -337,6 +337,11 @@
       align-items: start;
       margin-bottom: 10px;
     }
+    .eval-help {
+      margin: 0 0 8px;
+      font-size: 12px;
+      color: #6a655d;
+    }
     .eval-grid textarea {
       width: 100%;
       border: 1px solid var(--line);
@@ -349,15 +354,15 @@
     }
     .eval-summary {
       display: grid;
-      grid-template-columns: repeat(4, minmax(120px, 1fr));
-      gap: 8px;
-      margin-bottom: 10px;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 10px;
+      margin-bottom: 12px;
     }
     .eval-metric {
-      border: 1px solid #ece6db;
-      border-radius: 8px;
+      border: 1px solid #e8dfd0;
+      border-radius: 10px;
       background: #fffaf2;
-      padding: 8px;
+      padding: 10px;
     }
     .eval-metric .label {
       font-size: 11px;
@@ -370,12 +375,15 @@
       color: #1f1d1a;
     }
     .eval-item {
-      border-bottom: 1px solid #ece6db;
-      padding: 8px 0;
+      border: 1px solid #ece6db;
+      border-radius: 8px;
+      background: #fff;
+      padding: 9px 10px;
       font-size: 12px;
+      margin-bottom: 8px;
     }
     .eval-item:last-child {
-      border-bottom: 0;
+      margin-bottom: 0;
     }
     .eval-item .meta {
       font-weight: 700;
@@ -391,7 +399,49 @@
     }
     .eval-result-panel {
       white-space: normal;
-      line-height: 1.35;
+      line-height: 1.4;
+      max-height: none;
+      overflow: visible;
+      min-height: 140px;
+      height: auto;
+      background: #fffdfa;
+    }
+    .eval-compare-wrap {
+      margin: 10px 0 12px;
+      border: 1px solid #ece6db;
+      border-radius: 8px;
+      background: #fffaf2;
+      overflow: visible;
+    }
+    .eval-compare-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: #4f4a43;
+      padding: 8px 10px;
+      border-bottom: 1px solid #ece6db;
+      background: #f7efe2;
+    }
+    .eval-compare-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      table-layout: fixed;
+    }
+    .eval-compare-table th,
+    .eval-compare-table td {
+      border-bottom: 1px solid #ece6db;
+      padding: 6px 8px;
+      text-align: left;
+      white-space: normal;
+      word-break: keep-all;
+    }
+    .eval-compare-table th {
+      color: #635d54;
+      font-weight: 700;
+      background: #fffaf2;
+    }
+    .eval-compare-table tbody tr:last-child td {
+      border-bottom: 0;
     }
     mark {
       background: #ffe6a8;
